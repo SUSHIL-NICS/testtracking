@@ -1,0 +1,75 @@
+<RelativeLayout android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:ads="http://schemas.android.com/apk/res-auto">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:orientation="horizontal"
+        android:id="@+id/linearLayout"
+        android:weightSum="2"
+        >
+
+        <TextView
+            android:id="@+id/Text_timer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:inputType="textPersonName"
+            android:text="Timer"
+
+            />
+        <Button
+            android:id="@+id/button_start"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+           android:layout_weight="1"
+            android:text="START"
+            android:background="@drawable/gradient_red_color"
+            />
+
+
+        <Button
+            android:id="@+id/button_stop"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="STOP"
+            android:visibility="gone"
+            android:background="#dc1515"/>
+    </LinearLayout>
+
+    <!--<LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentStart="true"
+        android:orientation="horizontal"
+        android:id="@+id/linearLayout_buttom">
+
+
+    </LinearLayout>
+-->
+
+     <fragment
+         android:id="@+id/map"
+         android:name="com.google.android.gms.maps.SupportMapFragment"
+         android:layout_width="match_parent"
+         android:layout_height="450dp"
+         android:layout_below="@+id/linearLayout"
+         android:layout_alignParentLeft="true"
+         android:layout_alignParentStart="true" />
+
+    <ImageButton
+        android:id="@+id/camera"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:background="@drawable/ic_camera_enhance_black_18dp"
+        android:layout_below="@+id/map"
+        android:layout_centerHorizontal="true"
+         />
+
+</RelativeLayout>
