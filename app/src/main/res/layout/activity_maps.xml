@@ -71,5 +71,14 @@
         android:layout_below="@+id/map"
         android:layout_centerHorizontal="true"
          />
+    <ImageButton
+        android:id="@+id/video"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:background="@drawable/ic_video"
+        android:layout_below="@+id/map"
+        android:layout_toRightOf="@+id/camera"
+        android:layout_centerHorizontal="true"
+         />
 
 </RelativeLayout>

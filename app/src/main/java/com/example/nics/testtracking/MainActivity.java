@@ -1,6 +1,7 @@
 package com.example.nics.testtracking;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -90,7 +91,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     //reference variable used for lat-long,permission and status for start the service
     static boolean status;
     private Context context = MainActivity.this;
-    private static final int PERMISSION_REQUEST_CODE = 200;
+    private static final int PERMISSION_REQUEST_CODE = 100;
     private double latitude = 0.0;
     private double longitude = 0.0;
     private boolean back=false;
@@ -101,6 +102,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     public static Button start_btn;
     private Button stop_btn;
     public ImageButton camera;
+    public ImageButton video;
     //For Timer
     public Handler mHandler;
     private Handler circleHandler = new Handler();
@@ -112,6 +114,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Activity request codes
     private static final int CAMERA_CAPTURE_IMAGE_REQUEST_CODE = 100;
     public static final int MEDIA_TYPE_IMAGE = 1;
+
+    private static final int CAMERA_CAPTURE_VIDEO_REQUEST_CODE = 200;
+    public static final int MEDIA_TYPE_VIDEO = 2;
     // directory name to store captured images and videos
     public static Uri fileUri; // file url to store image/video
 
@@ -260,6 +265,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         start_btn = (Button) findViewById(R.id.button_start);
         stop_btn = (Button) findViewById(R.id.button_stop);
         camera=(ImageButton)findViewById(R.id.camera);
+         video=(ImageButton)findViewById(R.id.video);
         camera.setVisibility(View.VISIBLE);
     }
 
@@ -353,6 +359,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 captureImage();
             }
         });
+        video.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                TimeBuff += MillisecondTime;
+                mHandler.removeCallbacks(startTimer);
+                Log.v("time",TimeBuff+"");
+                recordVideo();
+            }
+        });
             }
   /*@Override
     public void onResume() {
@@ -365,11 +380,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mHandler.removeCallbacks(startTimer);
     }*/
 
- /**
+    /**
      * Checking device has camera hardware or not
      * */
     private boolean isDeviceSupportCamera() {
-        if (getApplicationContext().getPackageManager().hasSystemFeature(
+        if (getPackageManager().hasSystemFeature(
                 PackageManager.FEATURE_CAMERA)) {
             // this device has a camera
             return true;
@@ -379,33 +394,94 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
-    /*
- * Capturing Camera Image will lauch camera app requrest image capture
- */
+
+
+ /* Capturing Camera Image will lauch camera app requrest image capture*/
+
     private void captureImage() {
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-
         fileUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
 
         intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
         // start the image capture Intent
         startActivityForResult(intent, CAMERA_CAPTURE_IMAGE_REQUEST_CODE);
-    }
+
+    /*   Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI);
+        intent.setType("image");*/
+            }
 
     /*
-     *
+* Recording video
+*/
+    private void recordVideo() {
+        Intent intent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+        fileUri = getOutputMediaFileUri(MEDIA_TYPE_VIDEO);
+        // set video quality
+        intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri); // set the image file
+        // name
+        // start the video capture Intent
+        startActivityForResult(intent, CAMERA_CAPTURE_VIDEO_REQUEST_CODE);
+    }
+
+
+    /**
+     * Creating file uri to store image/video*/
+
+    public Uri getOutputMediaFileUri(int type) {
+        return Uri.fromFile(getOutputMediaFile(type));
+    }
+
+
+    /* * returning image / video*/
+
+    private static File getOutputMediaFile(int type) {
+
+        // External sdcard location
+        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                Constants.IMAGE_FOLDER);
+        // Create the storage directory if it does not exist
+        if (!mediaStorageDir.exists()) {
+            if (!mediaStorageDir.mkdirs()) {
+                Log.d(Constants.IMAGE_FOLDER, "Oops! Failed create "
+                        + Constants.IMAGE_FOLDER + " directory");
+                return null;
+            }
+        }
+
+        // Create a media file name
+        String timeStamp = new SimpleDateFormat("yyyy.MM.dd_HH.mm.ss",
+                Locale.getDefault()).format(new Date());
+        File mediaFile;
+        if (type == MEDIA_TYPE_IMAGE) {
+            mediaFile = new File(mediaStorageDir.getPath() + File.separator
+                    + "IMG_" + timeStamp + ".jpg");
+        }
+        else if (type == MEDIA_TYPE_VIDEO) {
+            mediaFile = new File(mediaStorageDir.getPath() + File.separator
+                    + "VID_" + timeStamp + ".mp4");
+        }else {
+            return null;
+        }
+        return mediaFile;
+    }
+
+
+    /* *
      * Receiving activity result method will be called after closing the camera
      * used to get Response after image clicked
-     * */
+     **/
     @Override
-    protected void onActivityResult(int requestCode, final int resultCode, final Intent data) {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
         // if the result is capturing Image
-        if (requestCode == CAMERA_CAPTURE_IMAGE_REQUEST_CODE) {
+        if (requestCode == CAMERA_CAPTURE_IMAGE_REQUEST_CODE || requestCode == CAMERA_CAPTURE_VIDEO_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
                 // successfully captured the image
                 // display it in image view
-                Toast.makeText(getApplicationContext(), "Image captured successfully", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), "Captured successfully", Toast.LENGTH_SHORT).show();
                 AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("Your Image");
                 builder.setPositiveButton("Send", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -436,20 +512,21 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     BitmapFactory.Options options = new BitmapFactory.Options();
                     // downsizing image as it throws OutOfMemory Exception for larger
                     // images
-                    options.inSampleSize = 8;
+                    options.inSampleSize = 12;
 
                     final Bitmap bitmap = BitmapFactory.decodeFile(fileUri.getPath(),options);
 
                     imgPreview.setImageBitmap(bitmap);
                 } catch (NullPointerException e) {
                     e.printStackTrace();
-                }dialog.show();
-                /* Intent intent=new Intent(MainActivity.this,CameraActivity.class);
+                }
+                dialog.show();
+                 /*Intent intent=new Intent(MainActivity.this,CameraActivity.class);
                 startActivity(intent);*/
             } else if (resultCode == RESULT_CANCELED) {
                 // user cancelled Image capture
                 Toast.makeText(getApplicationContext(),
-                        "User cancelled image capture", Toast.LENGTH_SHORT)
+                        "User cancelled Capture", Toast.LENGTH_SHORT)
                         .show();
                 StartTime = SystemClock.uptimeMillis();
                 mHandler.postDelayed(startTimer,0);
@@ -460,70 +537,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         .show();
             }
         }
-    }
-    /*
-      Here we store the file url as it will be null after returning from camera
-    * app
-    */
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        // save file url in bundle as it will be null on scren orientation
-        // changes
-        outState.putParcelable("file_uri", fileUri);
-    }
-
-
-    /*
-     * Here we restore the fileUri again
-     */
-
-    @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-        // get the file url
-        fileUri = savedInstanceState.getParcelable("file_uri");
-    }
-
-
-    /**
-     * Creating file uri to store image/video
-     */
-    public Uri getOutputMediaFileUri(int type) {
-        return Uri.fromFile(getOutputMediaFile(type));
-    }
-
-    /*
-     * returning image / video
-     */
-    private static File getOutputMediaFile(int type) {
-
-        // External sdcard location
-        File mediaStorageDir = new File(
-                Environment
-                        .getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
-                Constants.IMAGE_FOLDER);
-        // Create the storage directory if it does not exist
-        if (!mediaStorageDir.exists()) {
-            if (!mediaStorageDir.mkdirs()) {
-                Log.d(Constants.IMAGE_FOLDER, "Oops! Failed create "
-                        + Constants.IMAGE_FOLDER + " directory");
-                return null;
-            }
-        }
-
-        // Create a media file name
-        String timeStamp = new SimpleDateFormat("yyyy/MM/dd_HH.mm.ss",
-                Locale.getDefault()).format(new Date());
-        File mediaFile;
-        if (type == MEDIA_TYPE_IMAGE) {
-            mediaFile = new File(mediaStorageDir.getPath() + File.separator
-                    + "IMG_" + timeStamp + ".jpg");
-        } else {
-            return null;
-        }
-        return mediaFile;
     }
 
     private void implementationMap() {
@@ -604,13 +617,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private boolean checkPermission() {
         int fineLocation = ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION);
         int storage = ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        return fineLocation == PackageManager.PERMISSION_GRANTED && storage == PackageManager.PERMISSION_GRANTED;
+        int camera = ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA);
+        return fineLocation == PackageManager.PERMISSION_GRANTED && storage == PackageManager.PERMISSION_GRANTED && camera == PackageManager.PERMISSION_GRANTED;
     }
     /*
     * this method is ask to user request the requestPermission()
     * */
     private void requestPermission() {
-        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE,Manifest.permission.CAMERA}, PERMISSION_REQUEST_CODE);
     }
 
     @Override
@@ -621,18 +635,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     boolean locationAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
                     boolean storage = grantResults[1] == PackageManager.PERMISSION_GRANTED;
-                    if (locationAccepted || storage) {
+                    boolean camera = grantResults[1] == PackageManager.PERMISSION_GRANTED;
+                    if (locationAccepted || storage || camera) {
                         Toast.makeText(context, "Permission Granted, Now you can access location data and storage", Toast.LENGTH_LONG).show();
                     } else {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             if (shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) ||
-                                    shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                                    shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)||
+                                    shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
                                 showMessageOKCancel("You need to allow access to both the permissions",
                                         new DialogInterface.OnClickListener() {
                                             @Override
                                             public void onClick(DialogInterface dialog, int which) {
                                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
+                                                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.CAMERA}, PERMISSION_REQUEST_CODE);
                                                 }
                                             }
                                         });
@@ -874,7 +890,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 intent.setFlags(FLAG_RECEIVER_FOREGROUND);
                 if(networkInfo != null && networkInfo.getDetailedState() == NetworkInfo.DetailedState.CONNECTED) {
                     Toast.makeText(context,"Connected Successfully Test",Toast.LENGTH_LONG).show();
-                    //MainActivity.camera.setVisibility(View.VISIBLE);
+                    camera.setVisibility(View.VISIBLE);
                     Log.d("Network", "Internet YAY");
                 } else if (networkInfo != null && networkInfo.getDetailedState() == NetworkInfo.DetailedState.DISCONNECTED) {
                     Toast.makeText(context,"No Internet Connection Test",Toast.LENGTH_LONG).show();
@@ -902,7 +918,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     {
         //Toast.makeText(this,"onStop called Test",Toast.LENGTH_LONG).show();
         super.onStop();
-        unregisterReceiver(helloEzeMessageSentReceiver);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            unregisterReceiver(helloEzeMessageSentReceiver);
+        }
     }
 
 
