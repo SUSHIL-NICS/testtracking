@@ -65,7 +65,7 @@ public class GpsTracker extends Service implements LocationListener{
         this.mContext = context;
         preferenceHelper=new PreferenceHelper(mContext);
         getLocation(mContext);
-        checkInternetConnection();
+        //checkInternetConnection();
     }
 
     /**
@@ -174,7 +174,7 @@ public class GpsTracker extends Service implements LocationListener{
                         dialog.dismiss();
                         /*
                         * used to close an activity in side a service class*/
-                        ((Activity)mContext).finish();
+                       // ((Activity)mContext).finish();
                     }
                 }).show();
     }

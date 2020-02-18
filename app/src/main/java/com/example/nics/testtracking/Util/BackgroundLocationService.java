@@ -1,6 +1,7 @@
 package com.example.nics.testtracking.Util;
 import android.app.Service;
 import android.content.Intent;
+//import android.content.Intent;
 import android.graphics.Color;
 import android.location.Location;
 import android.os.Binder;

@@ -2,6 +2,7 @@ package com.example.nics.testtracking;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.Notification;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -10,11 +11,14 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
+import android.location.GpsStatus;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -26,7 +30,7 @@ import android.os.IBinder;
 import android.os.StrictMode;
 import android.os.SystemClock;
 import android.provider.MediaStore;
-import android.support.annotation.Nullable;
+import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
@@ -42,6 +46,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 
@@ -67,9 +73,11 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+//import java.util.Locale;
 
 import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
 
@@ -103,6 +111,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private Button stop_btn;
     public ImageButton camera;
     public ImageButton video;
+    public ImageView showimage;
+    public Button select_image;
     //For Timer
     public Handler mHandler;
     private Handler circleHandler = new Handler();
@@ -117,6 +127,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private static final int CAMERA_CAPTURE_VIDEO_REQUEST_CODE = 200;
     public static final int MEDIA_TYPE_VIDEO = 2;
+
+    private static final int CAMERA_SELECT_IMAGE = 300;
+    public static final int SELECTED_IMAGE = 3;
+
+    private static String filePath;
+    private int fileName;
+    private File uploadImgFile = null;
     // directory name to store captured images and videos
     public static Uri fileUri; // file url to store image/video
 
@@ -124,6 +141,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     int Seconds, Minutes,Hours,MilliSeconds ;
     private AlertDialog mInternetDialog;
     private static final int WIFI_ENABLE_REQUEST = 0x1006;
+    private static final int LOCATION_ENABLE_REQUEST = 1;
 
     /*
     * ServiceConnection interface used to initialize BackgroundLocationService.class
@@ -156,7 +174,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     /*
-        * this method used for stop the BackgroundLocationService class.
+       * this method used for stop the BackgroundLocationService class.
         * when status==false
         */
     void unbindService() {
@@ -180,15 +198,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
-        StrictMode.setVmPolicy(builder.build());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             registerReceiver(helloEzeMessageSentReceiver,
                     new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+            registerReceiver(gpsReceiver,
+                    new IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION));
         }
+
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
        // builder.detectFileUriExposure(); check in google for more
 
         getSupportActionBar().setTitle("Tracking");
@@ -263,6 +284,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private void intializeUiElement() {
         timer_tv = (TextView) findViewById(R.id.Text_timer);
         start_btn = (Button) findViewById(R.id.button_start);
+        select_image = (Button) findViewById(R.id.select_image);
+        showimage=(ImageView)findViewById(R.id.showimage);
         stop_btn = (Button) findViewById(R.id.button_stop);
         camera=(ImageButton)findViewById(R.id.camera);
          video=(ImageButton)findViewById(R.id.video);
@@ -368,6 +391,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 recordVideo();
             }
         });
+        select_image.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                fromGallery();
+            }
+        });
             }
   /*@Override
     public void onResume() {
@@ -399,20 +428,32 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
  /* Capturing Camera Image will lauch camera app requrest image capture*/
 
     private void captureImage() {
-        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+
+        StrictMode.VmPolicy.Builder builder = new StrictMode.VmPolicy.Builder();
+        StrictMode.setVmPolicy(builder.build());
+
+        Intent intent = new Intent();
+        intent.setAction(MediaStore.ACTION_IMAGE_CAPTURE);
         fileUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
 
         intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
         // start the image capture Intent
         startActivityForResult(intent, CAMERA_CAPTURE_IMAGE_REQUEST_CODE);
-
-    /*   Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.INTERNAL_CONTENT_URI);
-        intent.setType("image");*/
             }
 
-    /*
-* Recording video
-*/
+
+    private void fromGallery() {
+            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+//          intent.setType("image");
+        intent.setType("image/*");
+            startActivityForResult(intent, CAMERA_SELECT_IMAGE);
+    }
+
+
+/*
+Recording video
+ */
+
     private void recordVideo() {
         Intent intent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
         fileUri = getOutputMediaFileUri(MEDIA_TYPE_VIDEO);
@@ -429,9 +470,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
      * Creating file uri to store image/video*/
 
     public Uri getOutputMediaFileUri(int type) {
+
         return Uri.fromFile(getOutputMediaFile(type));
     }
-
 
     /* * returning image / video*/
 
@@ -450,8 +491,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
 
         // Create a media file name
-        String timeStamp = new SimpleDateFormat("yyyy.MM.dd_HH.mm.ss",
-                Locale.getDefault()).format(new Date());
+        String timeStamp = new SimpleDateFormat("yyyy.MM.dd_HH.mm.ss", Locale.getDefault()).format(new Date());
         File mediaFile;
         if (type == MEDIA_TYPE_IMAGE) {
             mediaFile = new File(mediaStorageDir.getPath() + File.separator
@@ -460,6 +500,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         else if (type == MEDIA_TYPE_VIDEO) {
             mediaFile = new File(mediaStorageDir.getPath() + File.separator
                     + "VID_" + timeStamp + ".mp4");
+        }else if (type == SELECTED_IMAGE) {
+            mediaFile = new File(mediaStorageDir.getAbsolutePath());
         }else {
             return null;
         }
@@ -475,8 +517,45 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         // if the result is capturing Image
-        if (requestCode == CAMERA_CAPTURE_IMAGE_REQUEST_CODE || requestCode == CAMERA_CAPTURE_VIDEO_REQUEST_CODE) {
+        if (requestCode == CAMERA_CAPTURE_IMAGE_REQUEST_CODE || requestCode == CAMERA_CAPTURE_VIDEO_REQUEST_CODE ||
+                requestCode == CAMERA_SELECT_IMAGE) {
             if (resultCode == RESULT_OK) {
+
+                try {
+                    showimage.setVisibility(View.VISIBLE);
+                    BitmapFactory.Options options = new BitmapFactory.Options();
+                    options.inSampleSize = 8;
+                    final Bitmap bitmap = BitmapFactory.decodeFile(fileUri.getPath(),options);
+                    showimage.setImageBitmap(bitmap);
+                   // showimage.setImageURI(fileUri);
+                } catch (NullPointerException e) {
+                    e.printStackTrace();
+                }
+
+                /*
+                * select from files
+                * */
+                try {
+                    Uri imageUri = data.getData();
+                    showimage.setImageURI(imageUri);
+                    //this is working 9.2.20
+                    /*Uri imageCaptureUri = getOutputMediaFileUri(SELECTED_IMAGE);
+                    uploadImgFile = new File(imageCaptureUri.getPath());
+
+
+                    if (file != null) {
+                        if (uploadImgFile.length() >= 2000000) {
+                            Toast.makeText(MainActivity.this, "Please select a file less than 2MB", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Uri imageSelectUri = data.getData();
+                            showimage.setImageURI(imageSelectUri);
+                        }
+                    }*/
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+
                 // successfully captured the image
                 // display it in image view
                 Toast.makeText(getApplicationContext(), "Captured successfully", Toast.LENGTH_SHORT).show();
@@ -539,6 +618,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+    public String getAbsolutePath(Uri uri) {
+        String[] projection = {MediaStore.MediaColumns.DATA};
+        @SuppressWarnings("deprecation")
+        Cursor cursor = managedQuery(uri, projection, null, null, null);
+        if (cursor != null) {
+            int column_index = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA);
+            cursor.moveToFirst();
+            return cursor.getString(column_index);
+        } else
+            return null;
+    }
+
     private void implementationMap() {
         try {
             gpsTracker = new GpsTracker(context);
@@ -563,6 +654,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 googleMap.setMyLocationEnabled(true);
                 googleMap.getUiSettings().setCompassEnabled(true);
                 googleMap.setBuildingsEnabled(true);
+                googleMap.addMarker(new MarkerOptions());
                 //  googleMap.setTrafficEnabled(true);
                 googleMap.getUiSettings().setRotateGesturesEnabled(true);
                 //showing current Location in google map
@@ -635,7 +727,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     boolean locationAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED;
                     boolean storage = grantResults[1] == PackageManager.PERMISSION_GRANTED;
-                    boolean camera = grantResults[1] == PackageManager.PERMISSION_GRANTED;
+                    boolean camera = grantResults[2] == PackageManager.PERMISSION_GRANTED;
                     if (locationAccepted || storage || camera) {
                         Toast.makeText(context, "Permission Granted, Now you can access location data and storage", Toast.LENGTH_LONG).show();
                     } else {
@@ -684,7 +776,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             longitude = gpsTracker.getLongitude();
             LatLng latLng = new LatLng(latitude, longitude);
             googleMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-            googleMap.addMarker(new MarkerOptions().position(latLng).title(getAddress(latitude, longitude)));
+            googleMap.addMarker(new MarkerOptions().position(latLng).title(getAddress(latitude, longitude))/*.icon(BitmapDescriptorFactory.fromResource(R.drawable.ic_action_location))*/);
         }
         /*if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
@@ -841,12 +933,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 polylineOptions.add(route.points.get(i));
 
             polylinePaths.add(googleMap.addPolyline(polylineOptions));
+
         }
     }
 
 
     public Runnable startTimer = new Runnable() {
-
+       @Override
         public void run() {
 
             MillisecondTime = SystemClock.uptimeMillis() - StartTime;
@@ -866,8 +959,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             timer_tv.setText("" + String.format("%02d", Hours) +":"
                     + String.format("%02d", Minutes) + ":"
                     + String.format("%02d", Seconds));
+           Toast.makeText(MainActivity.this,""+MillisecondTime,Toast.LENGTH_SHORT).show();
 
-            mHandler.postDelayed(this, 10);
+            mHandler.postDelayed(startTimer, 10);
         }
     };
     /*private Runnable drawline=new Runnable(){
@@ -878,9 +972,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         };*/
 
-    /*
+  /*  *//*
     * Runtime register
-    * Because manifast register is depricated for higher version>=nougat*/
+    * Because manifast register is depricated for higher version>=nougat*//*
     private BroadcastReceiver helloEzeMessageSentReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -895,13 +989,51 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 } else if (networkInfo != null && networkInfo.getDetailedState() == NetworkInfo.DetailedState.DISCONNECTED) {
                     Toast.makeText(context,"No Internet Connection Test",Toast.LENGTH_LONG).show();
                     camera.setVisibility(View.INVISIBLE);
-                    //checkInternetConnection();
+                    checkInternetConnection();
                     Log.d("Network", "No internet :(");
                 }
             }
         }
+    };*/
+
+    private BroadcastReceiver helloEzeMessageSentReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.e(TAG, "helloEzeMessage Message sent");
+            ConnectivityManager manager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo ni = manager.getActiveNetworkInfo();
+
+            if (ni != null && ni.getState() == NetworkInfo.State.CONNECTED) {
+                Toast.makeText(context,"Connected Successfully Test",Toast.LENGTH_LONG).show();
+                camera.setVisibility(View.VISIBLE);
+                Log.d("Network", "Internet YAY");
+            } else {
+                Toast.makeText(context,"No Internet Connection Test",Toast.LENGTH_LONG).show();
+                camera.setVisibility(View.INVISIBLE);
+                //checkInternetConnection();
+               /* Intent i=new Intent(Intent.ACTION_VIEW,Uri.parse("http://www.vogella.com"));
+               // i.setData(Uri.parse("http://www.vigella.com"));
+                startActivity(i);*/
+                showNoInternetDialog();
+                Log.d("Network", "No internet :(");
+            }
+        }
     };
 
+    /*for gps connection*/
+    private BroadcastReceiver gpsReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                //do something
+                Toast.makeText(MainActivity.this, " Connected ", Toast.LENGTH_LONG).show();
+            } else {
+                //do something else
+                Toast.makeText(MainActivity.this, " Lost GPS..! ", Toast.LENGTH_LONG).show();
+                EnableGPSIfPossible();
+            }
+        }    };
     @Override
     protected void onResume() {
         super.onResume();
@@ -910,6 +1042,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             registerReceiver(helloEzeMessageSentReceiver,
                     new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+            registerReceiver(gpsReceiver,
+                    new IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION));
         }
     }
 
@@ -920,10 +1054,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onStop();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             unregisterReceiver(helloEzeMessageSentReceiver);
+            unregisterReceiver(gpsReceiver);
         }
     }
 
-
+    /*
+    * for internet connection*/
     private void checkInternetConnection() {
         ConnectivityManager manager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo ni = manager.getActiveNetworkInfo();
@@ -934,6 +1070,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             showNoInternetDialog();
         }
     }
+   /*
+    * for gps connection*/
+       private boolean EnableGPSIfPossible()
+    {
+        final LocationManager manager = (LocationManager) getSystemService( Context.LOCATION_SERVICE );
+        if ( !manager.isProviderEnabled( LocationManager.GPS_PROVIDER ) ) {
+            askUserToOpenGPS();
+            return true;
+        }
+        return false;
+    }
+
     /**
      *
      * show settings to open GPS
@@ -951,6 +1099,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             public void onClick(DialogInterface dialog, int which) {
                 Intent gpsOptionsIntent = new Intent(android.provider.Settings.ACTION_WIFI_SETTINGS);
                 startActivityForResult(gpsOptionsIntent, WIFI_ENABLE_REQUEST);
+                ///startActivity(gpsOptionsIntent);
             }
         }).setNegativeButton("No, Just Exit", new DialogInterface.OnClickListener() {
             @Override
@@ -962,4 +1111,54 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mInternetDialog.show();
     }
 
+
+    /**
+     *
+     * show settings to open GPS
+     */
+    public void askUserToOpenGPS() {
+        // TODO Auto-generated method stub
+        AlertDialog.Builder mAlertDialog = new AlertDialog.Builder(this);
+        // Setting Dialog Title
+        mAlertDialog.setTitle("Location not available, Open GPS?").setCancelable(false)
+                //.setCanceledOnTouchOutside(false)
+                .setMessage("Activate GPS to use location services?")
+                .setPositiveButton("Open Settings", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                       /// startActivityForResult(intent,LOCATION_ENABLE_REQUEST);
+                        startActivity(intent);
+                    }
+                })
+                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                       /*   this is should be work to close an activity but in my case it is showing app crash
+                        Intent intent=new Intent(getApplicationContext(),MainActivity.class);
+                        getApplicationContext().startActivity(intent);
+                        ((Activity)getApplicationContext()).finish();*/
+                        dialog.dismiss();
+                        /*
+                        * used to close an activity in side a service class*/
+                        //MainActivity.this.finish();
+                    }
+                }).show();
+    }
 }
+
+/*class ArrayShift{
+   public static void main(String args[]){
+       int input1 =4;
+       int input2[]=new int[input1];
+       int input3=2;
+       int output[]=new int[input1];
+       for(int i=0;i<input1;i++){
+           input2[i]=i+1;
+       }
+       System.out.println(Arrays.toString(input2));
+       int k=input2[input3];
+       System.out.println(k);
+       for(int j=0;j<input3;j++){
+          
+       }
+   }
+}*/

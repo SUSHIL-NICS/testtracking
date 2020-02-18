@@ -1,19 +1,28 @@
 package com.example.nics.testtracking.Util;
 
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
+import android.os.SystemClock;
+import android.support.annotation.RequiresApi;
 import android.util.Log;
 
 import com.example.nics.testtracking.Constants;
 import com.example.nics.testtracking.Database.MapUpdateDataBase;
 import com.example.nics.testtracking.LogFile;
+import com.example.nics.testtracking.MainActivity;
+import com.example.nics.testtracking.R;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
+
+import static android.app.Notification.PRIORITY_MAX;
 
 /**
  * Created by subrat on 18-07-2017.
@@ -49,11 +58,37 @@ public class LocationService extends Service {
 
 
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // Let it continue running until it is stopped.
         Log.i("onStartCommand", "MyService Started");
-        // Toast.makeText(this, "Service Started", Toast.LENGTH_LONG).show();
+        // Let it continue running until it is stopped.
+        try {
+            /*if (intent.getAction().equals("com.logitek.bikerapp.util.action.startforeground")) {
+                Intent notificationIntent = new Intent(this, MainActivity.class);
+                notificationIntent.setAction("com.logitek.bikerapp.util.action.startforeground");
+                notificationIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                PendingIntent pendingIntent = PendingIntent.getActivity(this, 0,
+                        notificationIntent, 0);*/
+                Notification notification = new Notification.Builder(this)
+                        .setSmallIcon(R.drawable.ic_action_location)
+                        .setContentTitle("TEST TRACKING")
+                        .setContentText("TEST TRACKING")
+                        .setPriority(PRIORITY_MAX).build();
+                        //.setContentIntent(pendingIntent).build();
+                startForeground(101, notification);
+           /* }else if (intent.getAction().equals(
+                    "com.logitek.bikerapp.util.action.stopforeground")) {
+                Log.i(TAG, "Received Stop Foreground Intent");
+                stopForeground(true);
+                stopSelf();
+            }*/
+
+        }catch (Exception e){
+            e.printStackTrace();
+            Log.e("Exception", "MyService onStartCommand");
+        }
         return START_STICKY;
     }
 
@@ -110,8 +145,9 @@ public class LocationService extends Service {
     }
 
     private void startTime() {
-        long sTime = System.currentTimeMillis();
-        startTime = Long.parseLong(String.valueOf(sTime));
+        long sTime = SystemClock.uptimeMillis();
+        //startTime = Long.parseLong(String.valueOf(sTime)) ;
+        startTime=sTime;
         showTimer = new Timer();
         showTimer.schedule(new TimerTask() {
             @Override

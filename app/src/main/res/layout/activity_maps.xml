@@ -63,6 +63,13 @@
          android:layout_alignParentLeft="true"
          android:layout_alignParentStart="true" />
 
+    <Button
+        android:id="@+id/select_image"
+        android:layout_width="wrap_content"
+        android:layout_height="50dp"
+        android:layout_below="@+id/map"
+        android:text="From Gallery"
+        android:textColor="@color/colorPrimary"/>
     <ImageButton
         android:id="@+id/camera"
         android:layout_width="50dp"
@@ -80,5 +87,12 @@
         android:layout_toRightOf="@+id/camera"
         android:layout_centerHorizontal="true"
          />
+    <ImageView
+        android:id="@+id/showimage"
+        android:layout_width="80dp"
+        android:layout_height="50dp"
+        android:layout_below="@+id/map"
+        android:src="@mipmap/ic_launcher"
+        android:layout_toRightOf="@+id/video"/>
 
 </RelativeLayout>
